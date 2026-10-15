@@ -32,5 +32,6 @@ Not covered: real chip behaviour (trap registers, tag format), only the state ma
 Run `test/lacp` (above) and `sh test/stp_gaps.sh <RTLPlayground dir>`. A `GAP:` line is a missing feature, not a failure.
 - LACP, behavioural (confirmed): collect/distribute not decoupled (both set together when partner SYNC); partner key ignored in selection (same system, different key joins one aggregator); Marker PDU not answered.
 - LACP, source-level: no churn detection, no speed/duplex/member-compatibility check (#377).
-- RSTP, source-level only (STP code is tied to chip registers, no host harness yet): no Proposal/Agreement, no Alternate/Backup roles, no TCN transmitted toward root. TC flag and TCN receive+ack exist.
+- RSTP, source-level (`test/stp_gaps.sh`): no Proposal/Agreement flags, no Alternate/Backup role encoding, no TCN sent toward root.
+- RSTP, behavioural (`test/stp`, real `rtl837x_stp.c` with faked MSTP-state/link registers; run like test/lacp but with `-v ...	est\stp:/t`): a second link to the same upstream bridge keeps FORWARDING (no Alternate blocking, so a loop unless the peer blocks); no TC notice sent on the root port after a topology change; no Agreement reply and no fast root-port transition after a Proposal. Passing: root election and cost, listen period, TC flag in designated hellos, TCN->TCA, own-BPDU loop hold.
 - Regression-OK: LAG member mask, timeouts, mismatched partner, loopback, non-LAG port.
