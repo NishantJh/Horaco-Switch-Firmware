@@ -14,8 +14,14 @@ on:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    # Self-hosted runner on a personal PC: never run code from fork PRs.
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: [self-hosted, windows]
+    defaults:
+      run:
+        shell: bash
     steps:
+      - run: git config --global core.autocrlf false
       - uses: actions/checkout@v4
 
       - uses: actions/checkout@v4
@@ -28,9 +34,9 @@ jobs:
       # "GAP:" lines are known missing features, not failures.
       - name: LACP state machine tests
         run: |
-          sh test/lacp/run.sh "$PWD/rtlplayground" "$PWD/test/lacp" | tee lacp.log
+          docker run --rm -v "$GITHUB_WORKSPACE:/w" -w /w gcc:14 sh test/lacp/run.sh /w/rtlplayground /w/test/lacp | tee lacp.log
           grep -q '^ALL PASSED' lacp.log
           ! grep -q '^FAIL' lacp.log
 
       - name: RSTP gap checks (GAP lines are informational)
-        run: sh test/stp_gaps.sh "$PWD/rtlplayground"
+        run: docker run --rm -v "$GITHUB_WORKSPACE:/w" -w /w gcc:14 sh test/stp_gaps.sh /w/rtlplayground
