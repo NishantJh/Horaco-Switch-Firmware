@@ -1,5 +1,7 @@
 # Stock LACP analysis (HRRF_V200.2.4_HC-SWTGW218AS_0319)
 
+> Superseded for planning: RTLPlayground already ships LACP (doc/lacp.md), so the unknown registers below no longer block us. Kept as a reference for the stock behaviour (Marker responder, 3 s short timeout, validity rules).
+
 Behaviour notes only; no vendor code is reproduced. Confidence: **H** verified in the image, **M** inferred from strings/data, **L** guess.
 
 ## Image layout (H)
