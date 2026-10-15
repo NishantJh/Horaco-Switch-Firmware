@@ -43,10 +43,9 @@ One-page summary. Details live in docs/PLAN.md and the other docs.
 ## Open PRs
 
 Horaco-Switch-Firmware:
-- #1: 8051 disassembler and stock LACP analysis docs.
+- #1: 8051 disassembler and stock LACP analysis docs (no CI run yet).
 - #4: CI on a self-hosted Windows runner.
-- #5: Backup and rollback procedure for stock firmware.
-- #6: Web UI mock switch and screenshots.
+- #8: LACP host tests that assert the fixed gaps.
 
 RTLPlayground:
 - #2: CI on a self-hosted Windows runner.
