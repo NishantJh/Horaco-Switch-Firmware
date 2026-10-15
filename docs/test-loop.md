@@ -17,3 +17,13 @@ Never flash the switch from this loop. Never commit `stock/*.bin` or built image
 Ghidra is static analysis only: it cannot execute the image. Only bank 0/1 are loaded.
 LACP source: `rtl837x_lacp.c` (state machine: `lacp_in`, `lacp_send`, `lacp_step`, `lacp_timers`, `lacp_lag_set`).
 Feature testing without hardware needs an 8051 emulator with faked registers, or a host build of the LACP logic fed with crafted LACPDUs. Not built yet.
+
+## Host-side LACP test (works, 2026-10-15)
+`test/lacp/` compiles the unmodified `rtl837x_lacp.c` with host gcc (inside the Docker image) against shim headers
+and drives it with crafted LACPDUs and a fake clock. Run:
+
+    docker run --rm -v 'D:\Claude projects\RTLPlayground:/workspace' -v 'D:\Claude projects\repo\test\lacp:/t' rtlplayground-dev sh -c "tr -d '\r' </t/run.sh >/tmp/r.sh; sh /tmp/r.sh /workspace /t"
+
+Covers: engine on/off + RMA trap, TX LACPDU format, partner learning, SYNC/COLLECTING/DISTRIBUTING handshake, hardware LAG member mask,
+partner timeout, mismatched partner system, loopback and non-LAG port frames. All 21 checks pass against the current RTLPlayground main.
+Not covered: real chip behaviour (trap registers, tag format), only the state machine logic.
