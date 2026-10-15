@@ -34,3 +34,16 @@ jobs:
 
       - name: RSTP gap checks (GAP lines are informational)
         run: sh test/stp_gaps.sh "$PWD/rtlplayground"
+
+      - name: check-dump.py self-test (synthetic dump)
+        run: |
+          python3 - <<'PY'
+          import os
+          pay = os.urandom(980436)
+          d = bytearray(b'\xff' * 0x200000); d[:len(pay)] = pay
+          for n in ('d1.bin', 'd2.bin'): open(n, 'wb').write(d)
+          open('v.bin', 'wb').write(bytes.fromhex('12345678') + bytes(16) + pay)
+          open('bad.bin', 'wb').write(b'\xff' * 0x200000)
+          PY
+          python3 scripts/check-dump.py d1.bin d2.bin --vendor v.bin
+          ! python3 scripts/check-dump.py d1.bin bad.bin
