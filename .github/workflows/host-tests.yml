@@ -18,10 +18,21 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # fork_ref input, else the fork branch named like this branch, else main
+      - name: Pick the fork ref
+        id: fork
+        run: |
+          ref="${{ inputs.fork_ref }}"
+          if [ -z "$ref" ]; then
+            b="${{ github.head_ref || github.ref_name }}"
+            if git ls-remote --exit-code --heads https://github.com/NishantJh/RTLPlayground.git "$b" >/dev/null; then ref="$b"; else ref=main; fi
+          fi
+          echo "ref=$ref" | tee -a "$GITHUB_OUTPUT"
+
       - uses: actions/checkout@v4
         with:
           repository: NishantJh/RTLPlayground
-          ref: ${{ inputs.fork_ref || 'main' }}
+          ref: ${{ steps.fork.outputs.ref }}
           path: rtlplayground
 
       # run.sh always exits 0 after the test binary, so check the output.
