@@ -13,7 +13,7 @@ Behaviour notes only; no vendor code is reproduced. Confidence: **H** verified i
 | item | file offset | note |
 |---|---|---|
 | `lacp_fsm.c` code | chunk 28, from `0xE0014` | confirmed code (partner/actor field compares, long runs of xdata struct accesses) |
-| LACP debug/dump strings | `0xE1C00` (922048-923125) | see FSM below |
+| LACP debug/dump strings | `0xE11C0` (922048-923125) | see FSM below |
 | `lacp_fsm.c` path string | 930550 | end of the module's constants |
 | init data after path | `0xE3317` | dest MAC `01:80:C2:00:00:02`, then six 16-bit values 1, 30, 3, 90, 60, 2 (M) |
 | `saltrunk.c` path | 286809 (chunk 8) | SAL trunk layer |
