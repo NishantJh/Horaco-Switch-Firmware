@@ -1,0 +1,35 @@
+name: Host-side tests
+
+# Runs test/lacp and test/stp_gaps.sh (see docs/test-loop.md) against the RTLPlayground fork.
+# Pick another fork branch with workflow_dispatch -> fork_ref.
+on:
+  push:
+    branches: ['**']
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      fork_ref:
+        description: Branch/tag/SHA of NishantJh/RTLPlayground to test
+        default: main
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/checkout@v4
+        with:
+          repository: NishantJh/RTLPlayground
+          ref: ${{ inputs.fork_ref || 'main' }}
+          path: rtlplayground
+
+      - name: LACP state machine tests
+        run: sh test/lacp/run.sh "$PWD/rtlplayground" "$PWD/test/lacp" | tee lacp.log
+
+      - name: Fail if any LACP check failed
+        run: |
+          if grep -Eqi 'fail' lacp.log; then echo 'LACP check failed'; exit 1; fi
+
+      - name: RSTP gap checks (GAP lines are informational)
+        run: sh test/stp_gaps.sh "$PWD/rtlplayground"
