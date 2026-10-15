@@ -40,7 +40,8 @@ void print_byte(uint8_t b) { printf("%02x", b); }
 void print_short(uint16_t s) { printf("%04x", s); }
 void write_char(char c) { putchar(c); }
 
-static int fails;
+static int fails, gaps;
+#define GAP(c, msg) do { if (c) printf("ok:   %s\n", msg); else { printf("GAP:  %s\n", msg); gaps++; } } while (0)
 #define CHECK(c, msg) do { if (!(c)) { printf("FAIL: %s (line %d)\n", msg, __LINE__); fails++; } else printf("ok:   %s\n", msg); } while (0)
 
 /* Deliver a trapped partner LACPDU on `port`. `st` is the partner's actor state; `echo` its view of our state. */
@@ -120,6 +121,39 @@ int main(void)
 	CHECK(!lacpEnabled && rma_act == RTL837X_RMA_ACT_DROP, "lacp_off disables engine and drops slow-protocol frames");
 	CHECK(members[0] == 0, "LAG members cleared on lacp_off");
 
-	printf("\n%s (%d failure(s))\n", fails ? "FAILED" : "ALL PASSED", fails);
+	/* ---- Gap tests (PLAN step 2): desired 802.1AX behaviour; a GAP is a known missing feature, not a failure ---- */
+	printf("\n-- gap tests --\n");
+	{
+		int tx6;
+		uint8_t *p;
+		tx_count[6] = 0;
+		lacp_lag_set(1, PORT_BIT(6) | PORT_BIT(7));
+		run_ticks(8);
+
+		/* B. decoupled collect/distribute: partner in SYNC but not yet COLLECTING */
+		rx(6, partner, st2, 5, 0);
+		rx(6, partner, st2, 5, lacp_actor_state[6]);
+		GAP((lacp_actor_state[6] & LACP_STATE_COLLECTING) && !(lacp_actor_state[6] & LACP_STATE_DISTRIBUTING),
+		    "collecting enabled first, distributing only after partner collecting");
+		GAP(members[1] == 0, "port not in LAG members until partner reports COLLECTING");
+		rx(6, partner, st2 | LACP_STATE_COLLECTING, 5, lacp_actor_state[6]);
+		CHECK(members[1] == PORT_BIT(6), "port joins LAG once partner is collecting (regression)");
+
+		/* A. partner key selection: second port, same partner system but a different key */
+		rx(7, partner, st2, 6, 0);
+		rx(7, partner, st2 | LACP_STATE_COLLECTING, 6, lacp_actor_state[7]);
+		GAP(!(members[1] & PORT_BIT(7)), "port with different partner key must not join the same aggregator");
+
+		/* C. Marker protocol: Marker PDU (subtype 2) must be answered with a Marker Response */
+		tx6 = tx_count[6];
+		rx(6, partner, st2, 5, 0);	/* rebuild a valid frame, then turn it into a Marker PDU */
+		p = uip_buf + 20;
+		p[2] = 2;			/* subtype = Marker */
+		p[4] = 1;			/* TLV marker information */
+		lacp_in();
+		GAP(tx_count[6] > tx6 && last_tx[22] == 2, "Marker PDU answered with Marker Response");
+	}
+
+	printf("\n%s (%d failure(s)), %d known gap(s)\n", fails ? "FAILED" : "ALL PASSED", fails, gaps);
 	return fails != 0;
 }

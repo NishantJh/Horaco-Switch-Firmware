@@ -27,3 +27,10 @@ and drives it with crafted LACPDUs and a fake clock. Run:
 Covers: engine on/off + RMA trap, TX LACPDU format, partner learning, SYNC/COLLECTING/DISTRIBUTING handshake, hardware LAG member mask,
 partner timeout, mismatched partner system, loopback and non-LAG port frames. All 21 checks pass against the current RTLPlayground main.
 Not covered: real chip behaviour (trap registers, tag format), only the state machine logic.
+
+## Gap tests (2026-10-15, vs RTLPlayground main 28ea218)
+Run `test/lacp` (above) and `sh test/stp_gaps.sh <RTLPlayground dir>`. A `GAP:` line is a missing feature, not a failure.
+- LACP, behavioural (confirmed): collect/distribute not decoupled (both set together when partner SYNC); partner key ignored in selection (same system, different key joins one aggregator); Marker PDU not answered.
+- LACP, source-level: no churn detection, no speed/duplex/member-compatibility check (#377).
+- RSTP, source-level only (STP code is tied to chip registers, no host harness yet): no Proposal/Agreement, no Alternate/Backup roles, no TCN transmitted toward root. TC flag and TCN receive+ack exist.
+- Regression-OK: LAG member mask, timeouts, mismatched partner, loopback, non-LAG port.
