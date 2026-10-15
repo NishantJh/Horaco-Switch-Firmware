@@ -17,7 +17,7 @@ Status column reflects the RTLPlayground audit of 2026-10-15 (public docs on `ma
 | Static MAC, MAC limit per port | HW | Not verified | Stock has it; check RTLPlayground |
 | 802.1p QoS, queue weights, DSCP trust | HW | Not verified | Stock UI has queue mapping and weights |
 | Loop protection (loop detect packets) | SW | Not verified | Stock has it |
-| Management VLAN | SW | Present: `vlan <id> mgmt`, restricts web UI and syslog | Drop from plan |
+| Management VLAN | HW | Present: `vlan <id> mgmt` (default VLAN 1), restricts web UI and syslog | Missing: web UI binding, lockout guard for a bad VLAN ID |
 | LLDP (+ neighbor table) | SW | Present: rtl837x_lldp.c (TX, per-port permit/block) | Neighbour table not found in source; confirm |
 | SFP DDM readout | SW | Present: temperature, RX/TX power | Drop from plan |
 | Config backup/restore, firmware upgrade via web | SW | Partial: flash save and web firmware update | Restore unverified |
@@ -32,3 +32,5 @@ Status column reflects the RTLPlayground audit of 2026-10-15 (public docs on `ma
 | Modern web UI (VLAN matrix, port graph, dark mode) | UI | Present base web UI | Redesign; limited by flash, design as small gzip'd SPA |
 
 Suggested order: VLAN port presets, LACP hardening, RSTP gaps, LLDP, then UI. Management VLAN and the LACP base are already in RTLPlayground.
+
+Note: vlan.md is written for the RTL837x register map. The SWTG018AS doc lists the same 8273N + 8224N core, but register addresses are not yet verified on this exact chip.
