@@ -24,12 +24,13 @@ jobs:
           ref: ${{ inputs.fork_ref || 'main' }}
           path: rtlplayground
 
+      # run.sh always exits 0 after the test binary, so check the output.
+      # "GAP:" lines are known missing features, not failures.
       - name: LACP state machine tests
-        run: sh test/lacp/run.sh "$PWD/rtlplayground" "$PWD/test/lacp" | tee lacp.log
-
-      - name: Fail if any LACP check failed
         run: |
-          if grep -Eqi 'fail' lacp.log; then echo 'LACP check failed'; exit 1; fi
+          sh test/lacp/run.sh "$PWD/rtlplayground" "$PWD/test/lacp" | tee lacp.log
+          grep -q '^ALL PASSED' lacp.log
+          ! grep -q '^FAIL' lacp.log
 
       - name: RSTP gap checks (GAP lines are informational)
         run: sh test/stp_gaps.sh "$PWD/rtlplayground"
