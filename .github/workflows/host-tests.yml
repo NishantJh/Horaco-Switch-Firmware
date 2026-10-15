@@ -17,13 +17,7 @@ jobs:
     # Self-hosted runner on a personal PC: never run code from fork PRs.
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: [self-hosted, windows]
-    defaults:
-      run:
-        shell: bash
     steps:
-      - name: Use Git Bash (not WSL bash) for the bash steps
-        shell: powershell
-        run: Add-Content -Path $env:GITHUB_PATH -Value 'C:\Program Files\Git\bin'
       - run: git config --global core.autocrlf false
       - uses: actions/checkout@v4
 
@@ -37,9 +31,9 @@ jobs:
       # "GAP:" lines are known missing features, not failures.
       - name: LACP state machine tests
         run: |
-          docker run --rm -v "$GITHUB_WORKSPACE:/w" -w /w gcc:14 sh test/lacp/run.sh /w/rtlplayground /w/test/lacp | tee lacp.log
-          grep -q '^ALL PASSED' lacp.log
-          ! grep -q '^FAIL' lacp.log
+          docker run --rm -v "${env:GITHUB_WORKSPACE}:/w" -w /w gcc:14 sh test/lacp/run.sh /w/rtlplayground /w/test/lacp | Tee-Object lacp.log
+          if (-not (Select-String -Path lacp.log -Pattern '^ALL PASSED' -Quiet)) { throw 'no ALL PASSED' }
+          if (Select-String -Path lacp.log -Pattern '^FAIL' -Quiet) { throw 'FAIL lines found' }
 
       - name: RSTP gap checks (GAP lines are informational)
-        run: docker run --rm -v "$GITHUB_WORKSPACE:/w" -w /w gcc:14 sh test/stp_gaps.sh /w/rtlplayground
+        run: docker run --rm -v "${env:GITHUB_WORKSPACE}:/w" -w /w gcc:14 sh test/stp_gaps.sh /w/rtlplayground
