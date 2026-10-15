@@ -18,10 +18,10 @@ Status column reflects the RTLPlayground audit of 2026-10-15 (public docs on `ma
 | 802.1p QoS, queue weights, DSCP trust | HW | Not verified | Stock UI has queue mapping and weights |
 | Loop protection (loop detect packets) | SW | Not verified | Stock has it |
 | Management VLAN | SW | Present: `vlan <id> mgmt`, restricts web UI and syslog | Drop from plan |
-| LLDP (+ neighbor table) | SW | Not in feature list; source files reportedly exist, unverified | Confirm in source before planning |
+| LLDP (+ neighbor table) | SW | Present: rtl837x_lldp.c (TX, per-port permit/block) | Neighbour table not found in source; confirm |
 | SFP DDM readout | SW | Present: temperature, RX/TX power | Drop from plan |
 | Config backup/restore, firmware upgrade via web | SW | Partial: flash save and web firmware update | Restore unverified |
-| Syslog, NTP, DHCP client, DNS | SW | Syslog, NTP, DNS present; DHCP server is a stated goal, not present | DHCP client unverified |
+| Syslog, NTP, DHCP client, DNS | SW | Present: syslog, NTP, DNS, DHCP client (dhcp.c); DHCP server absent | Drop client from plan |
 | Authentication: hashed password, HTTPS/TLS | NO/SW | Not verified | TLS on an 8051 is a stretch; plan simple hashed login first |
 | 802.1X port auth, RADIUS | NO | Not present | Too heavy for the MCU |
 | SNMP read-only | SW | Not verified | Possible if flash allows |

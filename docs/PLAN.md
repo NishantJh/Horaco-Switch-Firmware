@@ -9,11 +9,13 @@ Order:
 2. LACP hardening: churn detection and Marker protocol, decoupled collect/distribute, partner-key check in Selection, member compatibility check (RTLPlayground #377).
 3. VLAN port presets: access, trunk, and hybrid modes as a layer over existing PVID and ingress settings. Apply VLAN settings to LAG members.
 4. RSTP gaps: proposal/agreement fast transition, alternate/backup port roles, topology-change notice toward root. Check the existing BPDU/root guard behaviour in code before changing it.
-5. LLDP with neighbour table. Not in RTLPlayground's feature list; confirm in source first.
+5. LLDP neighbour table, if missing. LLDP TX and per-port permit/block already exist (rtl837x_lldp.c).
 6. Config backup/restore. Flash save and web firmware update exist; restore is unverified.
 7. Web UI: VLAN matrix, LAG and LACP status, port graphs, dark mode, within flash limits (single gzip'd SPA).
 
+Resolved from the fork (NishantJh/rtlplayground, 2026-10-15):
+- Flash: 2MB W25Q16JVSIQ (16 Mbit) per doc/devices/SWTG018AS_A_V2_0.md. The "4M-bit" line in that doc is a stale note. Machine profile uses MAC offset 0x1FC000, which fits 2MB.
+- Register map: machine/PCB_SWTG018AS_V2_1_0.c sets isRTL8373=1, so the RTL837x code path is used. Not checked against an 8273N datasheet; confirm on the bench.
+
 Open:
-- Flash layout: doc says 2MB, and an older note says 4Mbit with two chips. Still unresolved.
-- RTLPlayground's device docs cite the RTL8372/8373 family. Confirm the register map matches the RTL8273N/RTL8224N on this board.
 - UART log of stock with a LAG partner.
