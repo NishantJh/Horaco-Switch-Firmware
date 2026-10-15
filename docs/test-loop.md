@@ -35,3 +35,6 @@ Run `test/lacp` (above) and `sh test/stp_gaps.sh <RTLPlayground dir>`. A `GAP:` 
 - RSTP, source-level (`test/stp_gaps.sh`): no Proposal/Agreement flags, no Alternate/Backup role encoding, no TCN sent toward root.
 - RSTP, behavioural (`test/stp`, real `rtl837x_stp.c` with faked MSTP-state/link registers; run like test/lacp but with `-v ...	est\stp:/t`): a second link to the same upstream bridge keeps FORWARDING (no Alternate blocking, so a loop unless the peer blocks); no TC notice sent on the root port after a topology change; no Agreement reply and no fast root-port transition after a Proposal. Passing: root election and cost, listen period, TC flag in designated hellos, TCN->TCA, own-BPDU loop hold.
 - Regression-OK: LAG member mask, timeouts, mismatched partner, loopback, non-LAG port.
+
+## Fix: RSTP alternate port (2026-10-15)
+Branch `rstp-alternate-port` on the NishantJh/rtlplayground fork (rtl837x_stp.c/.h). A non-root port that hears a path to the same root at least as good as its own offer is blocked (`stp_alt[]`), stays silent, expires after max-age, and is promoted when the root port ages out. `test/stp` now asserts this (alternate, failover, expiry) and passes; the SWTG018AS_A_V_2_0 image still builds. Not covered yet: Proposal/Agreement, TC notice toward root. Untested on hardware.

@@ -122,7 +122,8 @@ int main(void)
 		run(1);
 	}
 	CHECK(pstate(1) == 3, "root port forwards after listen period");
-	GAP(pstate(2) == 1, "second link to same upstream bridge is Alternate (blocking), not forwarding");
+	CHECK(pstate(2) == 1 && stp_alt[2], "second link to same upstream bridge is Alternate (blocking)");
+	CHECK(pstate(4) == 3, "port facing a host/downstream still forwards (designated)");
 
 	/* ---- topology change ---- */
 	t0 = now;
@@ -152,6 +153,42 @@ int main(void)
 	run(60);	/* ~1 s */
 	GAP(tx_since(1, t0, 0x40, -1), "Agreement BPDU sent in answer to a Proposal");
 	GAP(pstate(1) == 3, "root port forwards within ~1 s after Proposal/Agreement (not after 2x forward delay)");
+
+	/* ---- alternate failover and expiry (fresh start) ---- */
+	link_mask = PORT_BIT(1) | PORT_BIT(2) | PORT_BIT(4);
+	stp_defaults();
+	stp_setup();
+	for (int i = 0; i < 800; i++) {
+		if (i % 100 == 0) {
+			rx_bpdu(1, 0x10, up_mac, 0x02, FL_DESIG, 1, 0x80);
+			rx_bpdu(2, 0x10, up_mac, 0x02, FL_DESIG, 2, 0x80);
+		}
+		run(1);
+	}
+	CHECK(stp_root_port == 1 && pstate(1) == 3 && pstate(2) == 1, "setup: root port 1, alternate port 2");
+	for (int i = 0; i < 1100; i++) {	/* root port goes silent, alternate keeps hearing the root */
+		if (i % 100 == 0)
+			rx_bpdu(2, 0x10, up_mac, 0x02, FL_DESIG, 2, 0x80);
+		run(1);
+	}
+	CHECK(stp_root_port == 2 && pstate(2) == 3, "root port lost: alternate takes over and forwards");
+	CHECK(root_bridge.prio == 0x10, "root bridge kept through failover (no re-election as root)");
+
+	stp_defaults();
+	stp_setup();
+	for (int i = 0; i < 800; i++) {
+		if (i % 100 == 0) {
+			rx_bpdu(1, 0x10, up_mac, 0x02, FL_DESIG, 1, 0x80);
+			rx_bpdu(2, 0x10, up_mac, 0x02, FL_DESIG, 2, 0x80);
+		}
+		run(1);
+	}
+	for (int i = 0; i < 1100; i++) {	/* alternate port goes silent, root port stays */
+		if (i % 100 == 0)
+			rx_bpdu(1, 0x10, up_mac, 0x02, FL_DESIG, 1, 0x80);
+		run(1);
+	}
+	CHECK(stp_root_port == 1 && !stp_alt[2] && pstate(1) == 3, "silent alternate expires, root port unaffected");
 
 	printf("\n%s (%d failure(s)), %d known gap(s)\n", fails ? "FAILED" : "ALL PASSED", fails, gaps);
 	return fails != 0;
