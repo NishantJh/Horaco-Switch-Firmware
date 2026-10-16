@@ -20,7 +20,7 @@ One-page summary. Details live in docs/PLAN.md and the other docs.
 1. Back up both flash chips, build for HC-SWTGW218AS, verify on the bench.
 2. LACP hardening: churn detection and Marker, decoupled collect/distribute, partner-key check, member compatibility check.
 3. VLAN port presets (access, trunk, hybrid) and VLAN sync to LAG members.
-4. RSTP gaps: proposal/agreement, alternate and backup roles, topology-change notice.
+4. RSTP gaps: proposal/agreement, alternate and backup roles, topology-change notice. Done (fork + host tests); backup role is covered by the loop hold.
 5. LLDP neighbour table, if missing.
 6. Config backup and restore.
 7. Web UI: VLAN matrix, LAG/LACP status, port graphs, dark mode.

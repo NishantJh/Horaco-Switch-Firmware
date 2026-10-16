@@ -74,6 +74,7 @@ static int fails, gaps;
 static int pstate(int p) { return (mstp[3 - (p >> 2)] >> ((p << 1) & 7)) & 3; }
 static void run(int n) { while (n--) { now++; ticks++; stp_timers(); } }
 
+static uint32_t rx_cost;	/* root path cost carried by rx_bpdu(), host order */
 /* Deliver a BPDU on `port`. bridge_mac = designated bridge, root_prio = root's priority byte. */
 static void rx_bpdu(int port, uint8_t root_prio, const uint8_t bridge_mac[6], uint8_t type, uint8_t flags,
                     uint8_t port_id, uint8_t bport_prio)
@@ -88,7 +89,7 @@ static void rx_bpdu(int port, uint8_t root_prio, const uint8_t bridge_mac[6], ui
 	p[0] = 0; p[1] = 0x27; p[2] = 0x42; p[3] = 0x42; p[4] = 3;
 	p[7] = (type == 0x02) ? 2 : 0; p[8] = type; p[9] = flags;
 	p[10] = root_prio; p[11] = 0; memcpy(p + 12, rmac, 6);
-	/* cost 0 (root is directly behind the sender) */
+	p[18] = rx_cost >> 24; p[19] = rx_cost >> 16; p[20] = rx_cost >> 8; p[21] = rx_cost;
 	p[22] = root_prio; p[23] = 0; memcpy(p + 24, bridge_mac, 6);
 	p[30] = bport_prio; p[31] = port_id;
 	p[34] = 20; p[36] = 2; p[38] = 15;
@@ -129,7 +130,7 @@ int main(void)
 	t0 = now;
 	link_mask &= ~PORT_BIT(5);
 	run(120);
-	GAP(tx_since(1, t0, 0x01, -1) || tx_since(1, t0, 0, 0x80), "topology change notified toward the root (TC BPDU or TCN on root port)");
+	CHECK(tx_since(1, t0, 0x01, -1) || tx_since(1, t0, 0, 0x80), "topology change notified toward the root (TC BPDU or TCN on root port)");
 	CHECK(tx_since(4, t0, 0x01, -1), "designated port sets TC flag in its hellos (regression)");
 
 	/* ---- TCN received -> TCA ---- */
@@ -151,8 +152,74 @@ int main(void)
 	t0 = now;
 	rx_bpdu(1, 0x10, up_mac, 0x02, 0x02 /*proposal*/ | 0x0c, 1, 0x80);
 	run(60);	/* ~1 s */
-	GAP(tx_since(1, t0, 0x40, -1), "Agreement BPDU sent in answer to a Proposal");
-	GAP(pstate(1) == 3, "root port forwards within ~1 s after Proposal/Agreement (not after 2x forward delay)");
+	CHECK(tx_since(1, t0, 0x40, -1), "Agreement BPDU sent in answer to a Proposal");
+	CHECK(pstate(1) == 3, "root port forwards within ~1 s after Proposal/Agreement (not after 2x forward delay)");
+
+	/* ---- sync: other non-edge ports block and propose, agreement releases them ---- */
+	link_mask = PORT_BIT(1) | PORT_BIT(4) | PORT_BIT(5);
+	ntx = 0;
+	stp_defaults();
+	stp_setup();
+	stp_pflags[4] &= ~STP_PF_AUTOEDGE;	/* switch-facing, not an edge port */
+	stp_pflags[5] &= ~STP_PF_AUTOEDGE;
+	run(15 * 50 + 10);	/* ports 4 and 5 finish listening and forward as designated */
+	CHECK(pstate(4) == 3 && pstate(5) == 3, "setup: designated ports forward");
+	t0 = now;
+	rx_bpdu(1, 0x10, up_mac, 0x02, 0x02 | 0x0c, 1, 0x80);
+	CHECK(pstate(1) == 3 && tx_since(1, t0, 0x40, -1), "proposal on new root port: forwards at once, agreement sent");
+	CHECK(pstate(4) == 1 && pstate(5) == 1, "sync: other designated ports blocked");
+	run(5);
+	CHECK(tx_since(4, t0, 0x02, -1), "synced designated port proposes downstream");
+	rx_cost = 40000;
+	rx_bpdu(4, 0x10, up_mac, 0x02, 0x40 | 0x08, 1, 0x80);	/* agreement, role root, from the downstream bridge */
+	rx_cost = 0;
+	CHECK(pstate(4) == 3, "agreement received: designated port forwards without waiting the forward delay");
+	CHECK(pstate(5) == 1, "port without agreement keeps listening");
+	{
+		static const uint8_t b[6] = {0x02, 0xbb, 0xbb, 0xbb, 0xbb, 0x01};
+		rx_bpdu(5, 0x10, b, 0x02, 0x40 | 0x0c, 1, 0x80);	/* agreement but designated role: ignored */
+	}
+	CHECK(pstate(5) == 1, "agreement from a non-root-role BPDU is ignored");
+
+	/* ---- TCN toward the root: legacy STP mode, until acknowledged ---- */
+	stp_rstp = 0;
+	link_mask = PORT_BIT(1) | PORT_BIT(4);
+	ntx = 0;
+	stp_defaults();
+	stp_rstp = 0;
+	stp_pflags[4] &= ~STP_PF_AUTOEDGE;
+	stp_setup();
+	rx_bpdu(1, 0x10, up_mac, 0x00, 0, 1, 0x80);
+	run(15 * 50 + 10);
+	t0 = now;
+	link_mask &= ~PORT_BIT(4);
+	run(60);
+	CHECK(tx_since(1, t0, 0, 0x80), "STP mode: TCN BPDU sent on the root port");
+	{
+		int n0 = ntx;
+		rx_bpdu(1, 0x10, up_mac, 0x00, 0x80, 1, 0x80);	/* config BPDU with TC-ack */
+		run(300);
+		CHECK(ntx == n0 || !tx_since(1, now - 250, 0, 0x80), "TCN stops after the root port is acknowledged");
+	}
+	stp_rstp = 1;
+
+	/* ---- TC from a downstream bridge is passed up the root port ---- */
+	link_mask = PORT_BIT(1) | PORT_BIT(4);
+	stp_defaults();
+	stp_setup();
+	for (int i = 0; i < 800; i++) {
+		if (i % 100 == 0)
+			rx_bpdu(1, 0x10, up_mac, 0x02, FL_DESIG, 1, 0x80);
+		run(1);
+	}
+	run(300);	/* let every local change window expire */
+	t0 = now;
+	{
+		static const uint8_t b[6] = {0x02, 0xcc, 0xcc, 0xcc, 0xcc, 0x01};
+		rx_bpdu(4, 0x80, b, 0x02, 0x01 | 0x0c, 1, 0x80);	/* TC from downstream on port 4 */
+	}
+	run(60);
+	CHECK(tx_since(1, t0, 0x01, -1), "TC received on a designated port is forwarded to the root port");
 
 	/* ---- alternate failover and expiry (fresh start) ---- */
 	link_mask = PORT_BIT(1) | PORT_BIT(2) | PORT_BIT(4);
