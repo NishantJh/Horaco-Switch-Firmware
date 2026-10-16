@@ -33,6 +33,7 @@ jobs:
             if ($LASTEXITCODE -eq 0) { $ref = $b } else { $ref = 'main' }
           }
           "ref=$ref" | Tee-Object -FilePath $env:GITHUB_OUTPUT -Append
+          exit 0
 
       - uses: actions/checkout@v4
         with:
