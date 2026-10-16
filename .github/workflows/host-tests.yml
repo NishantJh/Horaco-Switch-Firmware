@@ -2,6 +2,7 @@ name: Host-side tests
 
 # Runs test/lacp and test/stp_gaps.sh (see docs/test-loop.md) against the RTLPlayground fork.
 # Pick another fork branch with workflow_dispatch -> fork_ref.
+# Runs on the self-hosted Windows runner; the tests run in a Linux container (scripts/ci-host-tests.sh).
 on:
   push:
     branches: ['**']
@@ -14,20 +15,25 @@ on:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    # Self-hosted runner on a personal PC: never run code from fork PRs.
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: [self-hosted, windows]
     steps:
+      - run: git config --global core.autocrlf false
       - uses: actions/checkout@v4
 
       # fork_ref input, else the fork branch named like this branch, else main
       - name: Pick the fork ref
         id: fork
         run: |
-          ref="${{ inputs.fork_ref }}"
-          if [ -z "$ref" ]; then
-            b="${{ github.head_ref || github.ref_name }}"
-            if git ls-remote --exit-code --heads https://github.com/NishantJh/RTLPlayground.git "$b" >/dev/null; then ref="$b"; else ref=main; fi
-          fi
-          echo "ref=$ref" | tee -a "$GITHUB_OUTPUT"
+          $ref = '${{ inputs.fork_ref }}'
+          if (-not $ref) {
+            $b = '${{ github.head_ref || github.ref_name }}'
+            git ls-remote --exit-code --heads https://github.com/NishantJh/RTLPlayground.git $b *> $null
+            if ($LASTEXITCODE -eq 0) { $ref = $b } else { $ref = 'main' }
+          }
+          "ref=$ref" | Tee-Object -FilePath $env:GITHUB_OUTPUT -Append
+          exit 0
 
       - uses: actions/checkout@v4
         with:
@@ -35,26 +41,5 @@ jobs:
           ref: ${{ steps.fork.outputs.ref }}
           path: rtlplayground
 
-      # run.sh always exits 0 after the test binary, so check the output.
-      # "GAP:" lines are known missing features, not failures.
-      - name: LACP state machine tests
-        run: |
-          sh test/lacp/run.sh "$PWD/rtlplayground" "$PWD/test/lacp" | tee lacp.log
-          grep -q '^ALL PASSED' lacp.log
-          ! grep -q '^FAIL' lacp.log
-
-      - name: RSTP gap checks (GAP lines are informational)
-        run: sh test/stp_gaps.sh "$PWD/rtlplayground"
-
-      - name: check-dump.py self-test (synthetic dump)
-        run: |
-          python3 - <<'PY'
-          import os
-          pay = os.urandom(980436)
-          d = bytearray(b'\xff' * 0x200000); d[:len(pay)] = pay
-          for n in ('d1.bin', 'd2.bin'): open(n, 'wb').write(d)
-          open('v.bin', 'wb').write(bytes.fromhex('12345678') + bytes(16) + pay)
-          open('bad.bin', 'wb').write(b'\xff' * 0x200000)
-          PY
-          python3 scripts/check-dump.py d1.bin d2.bin --vendor v.bin
-          ! python3 scripts/check-dump.py d1.bin bad.bin
+      - name: Host-side tests (in a Linux container)
+        run: docker run --rm -v "${env:GITHUB_WORKSPACE}:/w" debian:trixie-slim sh /w/scripts/ci-host-tests.sh /w
