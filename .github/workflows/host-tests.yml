@@ -2,6 +2,7 @@ name: Host-side tests
 
 # Runs test/lacp and test/stp_gaps.sh (see docs/test-loop.md) against the RTLPlayground fork.
 # Pick another fork branch with workflow_dispatch -> fork_ref.
+# Runs on the self-hosted Windows runner; the tests run in a Linux container (scripts/ci-host-tests.sh).
 on:
   push:
     branches: ['**']
@@ -21,19 +22,23 @@ jobs:
       - run: git config --global core.autocrlf false
       - uses: actions/checkout@v4
 
+      # fork_ref input, else the fork branch named like this branch, else main
+      - name: Pick the fork ref
+        id: fork
+        run: |
+          $ref = '${{ inputs.fork_ref }}'
+          if (-not $ref) {
+            $b = '${{ github.head_ref || github.ref_name }}'
+            git ls-remote --exit-code --heads https://github.com/NishantJh/RTLPlayground.git $b *> $null
+            if ($LASTEXITCODE -eq 0) { $ref = $b } else { $ref = 'main' }
+          }
+          "ref=$ref" | Tee-Object -FilePath $env:GITHUB_OUTPUT -Append
+
       - uses: actions/checkout@v4
         with:
           repository: NishantJh/RTLPlayground
-          ref: ${{ inputs.fork_ref || 'main' }}
+          ref: ${{ steps.fork.outputs.ref }}
           path: rtlplayground
 
-      # run.sh always exits 0 after the test binary, so check the output.
-      # "GAP:" lines are known missing features, not failures.
-      - name: LACP state machine tests
-        run: |
-          docker run --rm -v "${env:GITHUB_WORKSPACE}:/w" -w /w gcc:14 sh test/lacp/run.sh /w/rtlplayground /w/test/lacp | Tee-Object lacp.log
-          if (-not (Select-String -Path lacp.log -Pattern '^ALL PASSED' -Quiet)) { throw 'no ALL PASSED' }
-          if (Select-String -Path lacp.log -Pattern '^FAIL' -Quiet) { throw 'FAIL lines found' }
-
-      - name: RSTP gap checks (GAP lines are informational)
-        run: docker run --rm -v "${env:GITHUB_WORKSPACE}:/w" -w /w gcc:14 sh test/stp_gaps.sh /w/rtlplayground
+      - name: Host-side tests (in a Linux container)
+        run: docker run --rm -v "${env:GITHUB_WORKSPACE}:/w" debian:trixie-slim sh /w/scripts/ci-host-tests.sh /w
