@@ -1,3 +1,4 @@
+# Daily checks for GitHub Actions updates; security fixes arrive separately and on their own.
 version: 2
 updates:
   - package-ecosystem: github-actions
