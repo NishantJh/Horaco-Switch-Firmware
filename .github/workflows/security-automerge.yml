@@ -1,6 +1,7 @@
 name: Dependabot security auto-merge
 # Merges a Dependabot pull request that fixes a known vulnerability, once every other check on it has passed.
 # Routine version updates are left for the owner. No code from the pull request is checked out or run here.
+# Needs the self-hosted runner for this repo to be online.
 on:
   pull_request_target:
 permissions:
