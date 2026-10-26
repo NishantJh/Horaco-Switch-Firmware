@@ -20,7 +20,7 @@ jobs:
     runs-on: [self-hosted, windows]
     steps:
       - run: git config --global core.autocrlf false
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # fork_ref input, else the fork branch named like this branch, else main
       - name: Pick the fork ref
@@ -35,7 +35,7 @@ jobs:
           "ref=$ref" | Tee-Object -FilePath $env:GITHUB_OUTPUT -Append
           exit 0
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           repository: NishantJh/RTLPlayground
           ref: ${{ steps.fork.outputs.ref }}
