@@ -1,0 +1,7 @@
+# Daily checks for GitHub Actions updates. Security fixes arrive separately, whatever this schedule says.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: daily
